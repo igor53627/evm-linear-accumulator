@@ -245,9 +245,15 @@ contract LibLinearAccumulatorTest is Test {
         uint256 customQ = 257; // small prime
         uint256[4] memory acc = LibLinearAccumulator.accumulate(0x1234, 0, 16, seed, customQ);
         uint256[4] memory updated = LibLinearAccumulator.update(acc, 0x5678, 16, 16, seed, customQ);
-        // Verify it produces a result and is different from acc
-        bool anyDiff = acc[0] != updated[0] || acc[1] != updated[1];
-        assertTrue(anyDiff, "Custom-q update should change output");
+
+        // Verify against explicit expected value
+        uint256 combined = LibLinearAccumulator.xorAll(acc) ^ 0x5678;
+        uint256[4] memory expected = LibLinearAccumulator.accumulate(combined, 16, 16, seed, customQ);
+        assertEq(updated[0], expected[0], "Custom-q update word 0");
+        assertEq(updated[1], expected[1], "Custom-q update word 1");
+        assertEq(updated[2], expected[2], "Custom-q update word 2");
+        assertEq(updated[3], expected[3], "Custom-q update word 3");
+
         // Verify elements are in range [0, customQ)
         for (uint256 row = 0; row < 16; row++) {
             uint256 elem = (updated[0] >> (row * 16)) & 0xFFFF;

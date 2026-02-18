@@ -4,8 +4,8 @@ pragma solidity ^0.8.20;
 /// @title LibLinearAccumulator
 /// @notice Gas-optimized linear hash accumulator over Z_q using seed-derived matrices.
 /// @dev Computes H(x) = A * x mod q where A is an NxN matrix derived deterministically from a seed.
-///      Matrix is overwhelmingly likely full-rank for hash-derived entries over a prime field,
-///      but callers requiring guaranteed invertibility should verify off-chain for their seed.
+///      Matrix is overwhelmingly likely full-rank for hash-derived entries (especially over
+///      prime moduli), but callers requiring guaranteed invertibility should verify off-chain.
 ///      Each matrix row is derived via keccak256(seed || stepIndex || row || blockIdx).
 ///      Output is packed as 16-bit elements into uint256 words (16 elements per word).
 ///
