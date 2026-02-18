@@ -83,7 +83,7 @@ This means the matrix is never stored -- it is recomputed during evaluation, sav
 
 ## Properties
 
-- **Binding:** Full-rank matrix over Z_q is bijective (unique preimage for any output)
+- **Binding:** Hash-derived matrix over Z_q is overwhelmingly likely full-rank (bijective); callers requiring guaranteed invertibility should verify off-chain for their seed
 - **Deterministic:** Same inputs always produce the same output
 - **NOT collision-resistant:** The linear system is trivially invertible; this is an integrity check, not a hash function
 

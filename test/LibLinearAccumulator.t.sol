@@ -222,12 +222,36 @@ contract LibLinearAccumulatorTest is Test {
     }
 
     function test_revert_qZero() public {
-        vm.expectRevert("q must be <= 65521");
+        vm.expectRevert("q must be 2-65521");
         harness.accumulate(1, 0, 64, keccak256("x"), 0);
     }
 
+    function test_revert_qOne() public {
+        vm.expectRevert("q must be 2-65521");
+        harness.accumulate(1, 0, 64, keccak256("x"), 1);
+    }
+
     function test_revert_qTooLarge() public {
-        vm.expectRevert("q must be <= 65521");
+        vm.expectRevert("q must be 2-65521");
         harness.accumulate(1, 0, 64, keccak256("x"), 65522);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Custom-q update path
+    // ──────────────────────────────────────────────────────────────────
+
+    function test_update_customQ() public pure {
+        bytes32 seed = keccak256("custom-q-update");
+        uint256 customQ = 257; // small prime
+        uint256[4] memory acc = LibLinearAccumulator.accumulate(0x1234, 0, 16, seed, customQ);
+        uint256[4] memory updated = LibLinearAccumulator.update(acc, 0x5678, 16, 16, seed, customQ);
+        // Verify it produces a result and is different from acc
+        bool anyDiff = acc[0] != updated[0] || acc[1] != updated[1];
+        assertTrue(anyDiff, "Custom-q update should change output");
+        // Verify elements are in range [0, customQ)
+        for (uint256 row = 0; row < 16; row++) {
+            uint256 elem = (updated[0] >> (row * 16)) & 0xFFFF;
+            assertTrue(elem < customQ, "Element must be < custom q");
+        }
     }
 }

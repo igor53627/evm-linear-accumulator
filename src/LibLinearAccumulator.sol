@@ -3,7 +3,9 @@ pragma solidity ^0.8.20;
 
 /// @title LibLinearAccumulator
 /// @notice Gas-optimized linear hash accumulator over Z_q using seed-derived matrices.
-/// @dev Computes H(x) = A * x mod q where A is an NxN full-rank matrix derived from a seed.
+/// @dev Computes H(x) = A * x mod q where A is an NxN matrix derived deterministically from a seed.
+///      Matrix is overwhelmingly likely full-rank for hash-derived entries over a prime field,
+///      but callers requiring guaranteed invertibility should verify off-chain for their seed.
 ///      Each matrix row is derived via keccak256(seed || stepIndex || row || blockIdx).
 ///      Output is packed as 16-bit elements into uint256 words (16 elements per word).
 ///
@@ -30,7 +32,7 @@ library LibLinearAccumulator {
         uint256 q
     ) internal pure returns (uint256[4] memory output) {
         require(numRows > 0 && numRows <= 64, "numRows must be 1-64");
-        require(q > 0 && q <= 65521, "q must be <= 65521");
+        require(q >= 2 && q <= 65521, "q must be 2-65521");
         return _accumulate(inputBits, stepIndex, numRows, seed, q);
     }
 
@@ -95,13 +97,7 @@ library LibLinearAccumulator {
         result = output[0] ^ output[1] ^ output[2] ^ output[3];
     }
 
-    /// @notice Update accumulator: XOR current state with new input, re-accumulate.
-    /// @param acc Current accumulator state
-    /// @param newInput New wire/state bits to fold in
-    /// @param stepIndex Step index for the new accumulation
-    /// @param numRows Matrix dimension
-    /// @param seed Domain seed
-    /// @return Updated accumulator state
+    /// @notice Update accumulator: XOR current state with new input, re-accumulate (default q).
     function update(
         uint256[4] memory acc,
         uint256 newInput,
@@ -111,5 +107,18 @@ library LibLinearAccumulator {
     ) internal pure returns (uint256[4] memory) {
         uint256 combined = xorAll(acc) ^ newInput;
         return accumulate(combined, stepIndex, numRows, seed);
+    }
+
+    /// @notice Update accumulator with custom modulus.
+    function update(
+        uint256[4] memory acc,
+        uint256 newInput,
+        uint256 stepIndex,
+        uint256 numRows,
+        bytes32 seed,
+        uint256 q
+    ) internal pure returns (uint256[4] memory) {
+        uint256 combined = xorAll(acc) ^ newInput;
+        return accumulate(combined, stepIndex, numRows, seed, q);
     }
 }
