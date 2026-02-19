@@ -9,12 +9,23 @@ pragma solidity ^0.8.20;
 ///      Each matrix row is derived via keccak256(seed || stepIndex || row || blockIdx).
 ///      Output is packed as 16-bit elements into uint256 words (16 elements per word).
 ///
+///      WARNING: q is not enforced to be prime. When q is composite, arithmetic operates over
+///      the ring Z_q (not a field). Field-dependent properties (invertibility of all non-zero
+///      elements, algebraic soundness arguments) do not hold for composite moduli. Use a prime
+///      q (e.g. the default 65521) when field semantics are required.
+///
 ///      General-purpose primitive useful for:
 ///        - Trace integrity / wire binding (TLOS)
 ///        - State accumulators
 ///        - Fraud proof integrity checks
-///        - Incremental hashing over finite fields
+///        - Incremental hashing
 library LibLinearAccumulator {
+    /// @dev Number of uint256 words used to pack output elements (64 rows / 16 lanes = 4 words).
+    ///      Solidity does not allow constants in fixed-size array type declarations, so function
+    ///      signatures use the literal `uint256[4] memory`. This constant exists for documentation
+    ///      and internal use.
+    uint256 internal constant NUM_WORDS = 4;
+
     uint256 internal constant DEFAULT_Q = 65521;
 
     /// @notice Computes H(x) = A * x mod q for an NxN matrix.
@@ -22,39 +33,34 @@ library LibLinearAccumulator {
     /// @param stepIndex Index for matrix derivation (e.g. gate index, batch index)
     /// @param numRows Matrix dimension N (1-64). Also determines number of output elements.
     /// @param seed Domain seed for deterministic matrix derivation
-    /// @param q Modulus (must be <= 65521 to fit in 16-bit lanes)
+    /// @param q Modulus (must be <= 65521 to fit in 16-bit lanes). Use a prime for field semantics.
     /// @return output Packed output: ceil(N/16) uint256 words, 16-bit elements per word
-    function accumulate(
-        uint256 inputBits,
-        uint256 stepIndex,
-        uint256 numRows,
-        bytes32 seed,
-        uint256 q
-    ) internal pure returns (uint256[4] memory output) {
+    function accumulate(uint256 inputBits, uint256 stepIndex, uint256 numRows, bytes32 seed, uint256 q)
+        internal
+        pure
+        returns (uint256[4] memory output)
+    {
         require(numRows > 0 && numRows <= 64, "numRows must be 1-64");
         require(q >= 2 && q <= 65521, "q must be 2-65521");
         return _accumulate(inputBits, stepIndex, numRows, seed, q);
     }
 
     /// @notice Convenience: accumulate with default q=65521 (largest 16-bit prime).
-    function accumulate(
-        uint256 inputBits,
-        uint256 stepIndex,
-        uint256 numRows,
-        bytes32 seed
-    ) internal pure returns (uint256[4] memory) {
+    function accumulate(uint256 inputBits, uint256 stepIndex, uint256 numRows, bytes32 seed)
+        internal
+        pure
+        returns (uint256[4] memory)
+    {
         require(numRows > 0 && numRows <= 64, "numRows must be 1-64");
         return _accumulate(inputBits, stepIndex, numRows, seed, DEFAULT_Q);
     }
 
     /// @dev Core assembly implementation. Callers must validate inputs.
-    function _accumulate(
-        uint256 inputBits,
-        uint256 stepIndex,
-        uint256 numRows,
-        bytes32 seed,
-        uint256 q
-    ) private pure returns (uint256[4] memory output) {
+    function _accumulate(uint256 inputBits, uint256 stepIndex, uint256 numRows, bytes32 seed, uint256 q)
+        private
+        pure
+        returns (uint256[4] memory output)
+    {
         assembly {
             let outPtr := output
             for { let row := 0 } lt(row, numRows) { row := add(row, 1) } {
@@ -91,25 +97,30 @@ library LibLinearAccumulator {
         }
     }
 
-    /// @notice XOR all output words together into a single uint256.
-    /// @dev Useful for combining accumulator state with other data.
+    /// @notice XOR all NUM_WORDS output words together into a single uint256.
+    /// @dev Lossy compression: 4 * 256 = 1024 bits -> 256 bits. Useful for combining
+    ///      accumulator state with other data, but distinct accumulators may collide.
     function xorAll(uint256[4] memory output) internal pure returns (uint256 result) {
         result = output[0] ^ output[1] ^ output[2] ^ output[3];
     }
 
     /// @notice Update accumulator: XOR current state with new input, re-accumulate (default q).
-    function update(
-        uint256[4] memory acc,
-        uint256 newInput,
-        uint256 stepIndex,
-        uint256 numRows,
-        bytes32 seed
-    ) internal pure returns (uint256[4] memory) {
+    /// @dev Convenience function with a lossy compression tradeoff: acc (4 words, 1024 bits) is
+    ///      reduced to 256 bits via xorAll before mixing with newInput. Distinct acc values with
+    ///      the same xorAll will produce identical outputs. For maximal binding strength, prefer
+    ///      single-shot accumulate(). Integrators must ensure acc provenance is trusted (derived
+    ///      only from prior accumulate/update calls, never attacker-supplied).
+    function update(uint256[4] memory acc, uint256 newInput, uint256 stepIndex, uint256 numRows, bytes32 seed)
+        internal
+        pure
+        returns (uint256[4] memory)
+    {
         uint256 combined = xorAll(acc) ^ newInput;
         return accumulate(combined, stepIndex, numRows, seed);
     }
 
     /// @notice Update accumulator with custom modulus.
+    /// @dev Same lossy compression caveat as the default-q overload. See above.
     function update(
         uint256[4] memory acc,
         uint256 newInput,

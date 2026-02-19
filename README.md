@@ -39,7 +39,7 @@ uint256 combined = LibLinearAccumulator.xorAll(result);
 | `stepIndex` | Matrix derivation index (e.g. batch number) | uint256 |
 | `numRows` | Matrix dimension N | 1-64 |
 | `seed` | Domain seed for deterministic matrix derivation | bytes32 |
-| `q` | Modulus (optional, default 65521) | 1-65521 |
+| `q` | Modulus (optional, default 65521). Use a prime for field semantics; composite q operates over a ring. | 2-65521 |
 
 ### Output format
 
@@ -86,6 +86,8 @@ This means the matrix is never stored -- it is recomputed during evaluation, sav
 - **Binding:** Hash-derived matrix over Z_q is overwhelmingly likely full-rank (bijective); callers requiring guaranteed invertibility should verify off-chain for their seed
 - **Deterministic:** Same inputs always produce the same output
 - **NOT collision-resistant:** The linear system is trivially invertible; this is an integrity check, not a hash function
+- **Composite q:** The library permits any q in [2, 65521]. When q is composite, arithmetic operates over a ring (not a field) and field-dependent properties (invertibility, algebraic soundness) may not hold. Use a prime q when field semantics are required.
+- **`update()` compression:** `update()` reduces the 4-word accumulator to 256 bits via `xorAll` before re-accumulating. This is a lossy convenience -- prefer single-shot `accumulate()` for maximal binding strength, and ensure accumulator provenance is trusted.
 
 ## Related projects
 

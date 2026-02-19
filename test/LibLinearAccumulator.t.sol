@@ -6,12 +6,18 @@ import {LibLinearAccumulator} from "../src/LibLinearAccumulator.sol";
 
 contract LibLinearAccumulatorHarness {
     function accumulate(uint256 inputBits, uint256 stepIndex, uint256 numRows, bytes32 seed, uint256 q)
-        external pure returns (uint256[4] memory) {
+        external
+        pure
+        returns (uint256[4] memory)
+    {
         return LibLinearAccumulator.accumulate(inputBits, stepIndex, numRows, seed, q);
     }
 
     function accumulateDefaultQ(uint256 inputBits, uint256 stepIndex, uint256 numRows, bytes32 seed)
-        external pure returns (uint256[4] memory) {
+        external
+        pure
+        returns (uint256[4] memory)
+    {
         return LibLinearAccumulator.accumulate(inputBits, stepIndex, numRows, seed);
     }
 }
