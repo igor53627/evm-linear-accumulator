@@ -89,6 +89,21 @@ This means the matrix is never stored -- it is recomputed during evaluation, sav
 - **Composite q:** The library permits any q in [2, 65521]. When q is composite, arithmetic operates over a ring (not a field) and field-dependent properties (invertibility, algebraic soundness) may not hold. Use a prime q when field semantics are required.
 - **`update()` compression:** `update()` reduces the 4-word accumulator to 256 bits via `xorAll` before re-accumulating. This is a lossy convenience -- prefer single-shot `accumulate()` for maximal binding strength, and ensure accumulator provenance is trusted.
 
+## Audits
+
+| Date | Auditor | Report | Findings |
+|------|---------|--------|----------|
+| 2026-02-19 | [AuditAgent](https://auditagent.nethermind.io/) (Nethermind Security) | [Scan #37](audits/audit_agent_report_37_0f89ca8c-77ba-45ab-a6e5-292c9a9a5daf.pdf) | 0 High, 0 Medium, 2 Low, 2 Info |
+
+### Scan #37 findings and resolutions
+
+| # | Severity | Finding | Resolution |
+|---|----------|---------|------------|
+| 1 | Low | Magic numbers instead of constants (`4` in `uint256[4]`) | Added `NUM_WORDS` constant. Solidity does not allow constants in fixed-size array type declarations, so signatures retain the literal. |
+| 2 | Low | PUSH0 opcode compatibility | Set `evm_version = "paris"` in `foundry.toml` to avoid PUSH0 for L2 compatibility. |
+| 3 | Info | Composite q invalidates field assumptions | Added NatSpec and README warnings that composite q operates over a ring, not a field. |
+| 4 | Info | XOR compression in `update()` creates collision space | Documented lossy compression tradeoff and provenance requirements in NatSpec and README. |
+
 ## Related projects
 
 - [tlos](https://github.com/igor53627/tlos) -- Topology-Lattice Obfuscation (original wire binding consumer)
